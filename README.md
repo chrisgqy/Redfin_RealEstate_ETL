@@ -1,8 +1,9 @@
-Redfin Real Estate ETL & Analysis
-Overview
-This repository contains an ETL pipeline for crawling real estate data from Redfin, transforming it into a structured format, and performing basic analyses. The goal is to extract relevant property information, clean and store the data, and generate insights into real estate trends.
-Features
-* Web Scraping: Extracts property listings, prices, locations, and other key details from Redfin.
-* Data Cleaning & Transformation: Standardizes and processes extracted data for analysis.
-* Storage: Saves data in structured formats such as CSV or a database.
-* Exploratory Data Analysis (EDA): Generates summary statistics and visualizations.
+🏡 Redfin Real Estate ETL & Analysis
+🚀 Turn raw real estate data into insights! This project is an ETL pipeline that scrapes, cleans, and analyzes real estate information from Redfin. Whether you're a data geek, real estate investor, or just curious about housing trends, this repo helps you make sense of the market with structured data and meaningful analysis.
+
+✨ Features
+✅ Automated Web Scraping – Extract property listings, prices, locations & more.
+✅ Data Cleaning & Transformation – Standardize, format, and structure raw data.
+✅ Storage & Retrieval – Save your data in CSV or a database for easy access.
+✅ Exploratory Data Analysis (EDA) – Get summary stats and visualizations.
+✅ Scalable & Configurable – Adjust crawling parameters effortlessly.
