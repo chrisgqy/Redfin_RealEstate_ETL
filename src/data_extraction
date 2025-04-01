@@ -1,0 +1,8 @@
+from van_grid_info import vancouver_grid, listing_count
+from redfin_crawling import crawling_redfin, key_metric_extraction, extracting_by_batch
+
+if __name__ == "__main__":
+    head = {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+    real_estate_info, missing_entries, big_coord_boxes = extracting_by_batch(head, batch_num=40, test_batch_index=[20,21])
+    results = pd.DataFrame(real_estate_info)
+    results.to_csv('vancouver_real_estate.csv', index=False)
