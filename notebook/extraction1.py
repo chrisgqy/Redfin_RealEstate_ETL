@@ -396,6 +396,8 @@ def extraction_pipeline():
     # Save the results to CSV files in the specified directory
     result.to_csv("../data/raw_extraction/vancouver_real_estate_m1.csv", index=False)
     big_result.to_csv("../data/raw_extraction/vancouver_real_estate2_m1.csv", index=False)
+
+    
     
     
     
