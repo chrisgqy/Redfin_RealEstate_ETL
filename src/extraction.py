@@ -445,3 +445,19 @@ def metrics_extraction_m2(result, result_event, result_event_list, further_inves
 
 
 
+
+def calculate_min_pages(total_count, items_per_page):
+    """
+    Calculates the minimum number of pages required to display all items.
+
+    Parameters:
+    total_count (int): The total number of items to be displayed.
+    items_per_page (int): The maximum number of items that can be displayed per page.
+
+    Returns:
+    int: The minimum number of pages required.
+    """
+    
+    # Use integer division to determine the number of pages needed
+    # Adding (items_per_page - 1) ensures proper rounding up
+    return (total_count + items_per_page - 1) // items_per_page
