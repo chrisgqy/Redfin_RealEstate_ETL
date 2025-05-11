@@ -222,3 +222,226 @@ def listing_count(head, coord_box):
     select_listing_count, total_listing_count = int(select_listing_count), int(total_listing_count.replace(',', ''))
     
     return viewport_url, select_listing_count, total_listing_count
+
+def crawling_redfin(head, viewport_url, page):
+    """
+    Crawls a specific page of real estate listings from Redfin within a given viewport.
+
+    Parameters:
+    head (dict): Headers for the HTTP request.
+    viewport_url (str): Base URL for the listings search.
+    page (int): Page number to crawl.
+
+    Returns:
+    list: A list of BeautifulSoup objects representing individual property listings.
+    """
+    
+    # Construct the URL for the specified page number
+    target_url = f"{viewport_url}/page-{page}"
+    
+    # Send a GET request to fetch the webpage
+    resp = requests.get(target_url, headers=head)
+
+    # Raise an error if the request fails (non-200 status code)
+    if resp.status_code != 200:
+        raise Exception("Failing in webpage requests")
+    
+    # Parse the HTML response using BeautifulSoup
+    soup = BeautifulSoup(resp.text, 'html.parser')
+
+    return soup
+
+
+def metrics_extraction_m1(soup, real_estate_info):
+    """
+    Extracts key real estate metrics from Redfin listing elements.
+
+    Parameters:
+    soup_boxes (list): A list of BeautifulSoup objects representing property listings.
+    real_estate_info (dict): A dictionary to store extracted real estate information. 
+                             The dictionary should have keys: 'address', 'zip_code', 'price', 
+                             'bed', 'bath', 'sqr_footage', and 'property_link'.
+
+    Returns:
+    list: A list of indices where data extraction was incomplete.
+    """
+    
+    incomplete_idx = []  # Stores indices of listings with missing data
+
+    soup_boxes = soup.find_all("div", {"class": "HomeCardContainer"})
+
+    for i, box in enumerate(soup_boxes):
+        try:
+            # Extract address (excluding last 23 characters, likely city/state info)
+            address = box.find('address').text[:(-23)]
+            real_estate_info['address'].append(address)
+        except: 
+            real_estate_info['address'].append(np.nan)
+            incomplete_idx.append(i)
+
+        try:
+            # Extract ZIP code (last 7 characters of address text)
+            zip_code = box.find('address').text[-7:]
+            real_estate_info['zip_code'].append(zip_code)
+        except: 
+            real_estate_info['zip_code'].append(np.nan)
+            incomplete_idx.append(i)        
+
+        try:
+            # Extract price
+            price = box.find('span', {'class': 'bp-Homecard__Price--value'}).text
+            real_estate_info['price'].append(price)
+        except: 
+            real_estate_info['price'].append(np.nan)
+            incomplete_idx.append(i)
+
+        try:
+            # Extract number of bedrooms
+            bed = box.find('span', {'class': 'bp-Homecard__Stats--beds text-nowrap'}).text
+            real_estate_info['bed'].append(bed)
+        except: 
+            real_estate_info['bed'].append(np.nan)
+            incomplete_idx.append(i)   
+
+        try:
+            # Extract number of bathrooms
+            bath = box.find('span', {'class': 'bp-Homecard__Stats--baths text-nowrap'}).text
+            real_estate_info['bath'].append(bath)
+        except: 
+            real_estate_info['bath'].append(np.nan)
+            incomplete_idx.append(i)   
+
+        try:
+            # Extract square footage (locked stats section)
+            sqr_footage = box.find('span', {'class': 'bp-Homecard__LockedStat--value'}).text
+            real_estate_info['sqr_footage'].append(sqr_footage)
+        except:
+            real_estate_info['sqr_footage'].append(np.nan)
+            incomplete_idx.append(i)   
+
+        try:
+            # Extract property link (prepend base URL)
+            property_link = "https://www.redfin.com" + box.find("a").get('href')
+            real_estate_info['property_link'].append(property_link)
+        except:
+            real_estate_info['property_link'].append(np.nan)
+            incomplete_idx.append(i)
+
+    return incomplete_idx
+
+
+
+
+def metrics_extraction_m2(result, result_event, result_event_list, further_invest, soup):
+    """
+    Extract structured metadata from web pages using JSON-LD script tags.
+
+    This function parses JSON-LD script tags in a BeautifulSoup object to extract 
+    structured information about events, properties, and other entities.
+
+    Args:
+        result (dict): Dictionary to store extracted property information.
+        result_event (dict): Dictionary to store extracted event information.
+        result_event_list (dict): Dictionary to store alternative event information.
+        further_invest (list): List to collect items that couldn't be fully processed.
+        soup (BeautifulSoup): Parsed HTML document to extract metadata from.
+
+    Returns:
+        None: Modifies input dictionaries and list in-place.
+    """
+    # Find all JSON-LD script tags and parse their contents
+    info = soup.find_all('script', {'type':'application/ld+json'})
+    info = [json.loads(i.string) for i in info]
+
+    # Iterate through each parsed JSON-LD item
+    for j, i in enumerate(info):
+        # Process dictionary-type items
+        if isinstance(i, dict):
+            # Get the type of the current item
+            type_i = i.get('@type')
+            
+            # Skip Organization and BreadcrumbList types
+            if type_i in ['Organization', 'BreadcrumbList']:
+                continue
+            
+            # Process Event type items
+            elif type_i == 'Event':
+                # Handle location information
+                location = i.get('location')
+            
+                # Process list-type location
+                if isinstance(location, list):
+                    try:
+                        # Extract detailed location information
+                        address = location[1].get('address').get('streetAddress')
+                        postalCode = location[1].get('address').get('postalCode')
+                        latitude = location[1].get('geo').get('latitude')
+                        longitude = location[1].get('geo').get('longitude')
+                        url = i.get('url')
+
+                        # Store extracted information in result_event_list
+                        result_event_list['address'].append(address)
+                        result_event_list['postalCode'].append(postalCode)
+                        result_event_list['latitude'].append(latitude)
+                        result_event_list['longitude'].append(longitude)
+                        result_event_list['url'].append(url)
+                    except:
+                        # Collect items that couldn't be processed
+                        further_invest.append((j, i))
+                
+                # Process dictionary-type location
+                else:
+                    try:
+                        # Extract location and event details
+                        address = location.get('name')
+                        postalCode = location.get('address').get('postalCode') 
+                        latitude = location.get('geo').get('latitude')
+                        longitude = location.get('geo').get('longitude')
+                        price = i.get('offers').get('price')
+                        url = i.get('url')
+                        
+                        # Store extracted information in result_event
+                        result_event['address'].append(address)
+                        result_event['postalCode'].append(postalCode)
+                        result_event['latitude'].append(latitude)
+                        result_event['longitude'].append(longitude)
+                        result_event['price'].append(price)
+                        result_event['url'].append(url)
+                
+                    except:
+                        # Collect items that couldn't be processed
+                        further_invest.append(i)
+
+        # Process list-type items (likely property information)
+        elif isinstance(i, list):
+            try: 
+                # Extract property details from first item in the list
+                i_1 = i[0]
+                address = i_1.get('address').get('streetAddress')
+                postalCode = i_1.get('address').get('postalCode')
+                latitude = i_1.get('geo').get('latitude')
+                longitude = i_1.get('geo').get('longitude')
+                sqr_footage = i_1.get('floorSize').get('value')
+                bedrooms = i_1.get('numberOfRooms')
+                url = i_1.get('url')
+                
+                # Extract price from second item in the list
+                i_2 = i[1]
+                price = i_2.get('offers').get('price')
+
+                # Store extracted property information
+                result['address'].append(address)
+                result['postalCode'].append(postalCode)
+                result['latitude'].append(latitude)
+                result['longitude'].append(longitude)
+                result['price'].append(price)
+                result['square_footage'].append(sqr_footage)
+                result['bedroom'].append(bedrooms)
+                result['url'].append(url)
+            
+            except:
+                # Collect items that couldn't be processed
+                further_invest.append((j,i))
+
+
+
