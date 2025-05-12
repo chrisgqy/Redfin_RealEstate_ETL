@@ -1,5 +1,10 @@
+import pandas as pd
+import numpy as np
 import requests
 from bs4 import BeautifulSoup
+from collections import defaultdict
+import time
+
 
 
 def split_coordinate(four_coords, divisions_longs, divisions_lats, if_big_box):
@@ -559,3 +564,10 @@ def run_redfin_extraction_pipeline1(
         pd.DataFrame(refined_info).to_csv(output_paths[1], index=False)
         if verbose:
             print(f"Refined extraction saved to {output_paths[1]}")
+
+## Sample Usage
+# headers = {
+#     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+# }
+
+# run_redfin_extraction(headers)
