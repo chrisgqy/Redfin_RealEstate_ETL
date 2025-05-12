@@ -445,7 +445,6 @@ def metrics_extraction_m2(result, result_event, result_event_list, further_inves
 
 
 
-
 def calculate_min_pages(total_count, items_per_page):
     """
     Calculates the minimum number of pages required to display all items.
@@ -461,3 +460,102 @@ def calculate_min_pages(total_count, items_per_page):
     # Use integer division to determine the number of pages needed
     # Adding (items_per_page - 1) ensures proper rounding up
     return (total_count + items_per_page - 1) // items_per_page
+
+
+def run_redfin_extraction_pipeline1(
+    headers,
+    initial_divisions=(6, 6),
+    initial_batch_num=5,
+    refined_divisions=(2, 2),
+    refined_batch_num=4,
+    output_paths=("../data/raw_extraction/vancouver_real_estate_m1.csv",
+                  "../data/raw_extraction/vancouver_real_estate2_m1.csv"),
+    sleep_time=1,
+    verbose=True
+):
+    """
+    Combines Redfin extraction and refinement pipeline into one function.
+
+    Parameters:
+        headers (dict): HTTP headers for requests.
+        initial_divisions (tuple): (longitudes, latitudes) grid size for initial extraction.
+        initial_batch_num (int): Number of batches for initial run.
+        refined_divisions (tuple): Grid size for refining large boxes.
+        refined_batch_num (int): Number of batches for refined extraction.
+        output_paths (tuple): File paths to save the initial and refined extraction.
+        sleep_time (int): Time to sleep between requests.
+        verbose (bool): Whether to print progress logs.
+
+    Returns:
+        None
+    """
+
+    def extract_from_boxes(coord_boxes, batch_num, divisions_longs, divisions_lats):
+        """Inner helper to extract listings from coordinate boxes in batches."""
+        big_coord_boxes = []
+        real_estate_info = defaultdict(list)
+        missing_entries = defaultdict(list)
+        coord_box_batches = np.array_split(coord_boxes, batch_num)
+
+        for i, batch in enumerate(coord_box_batches):
+            for coord_box in batch:
+                listing_info = listing_count(headers, coord_box)
+                time.sleep(sleep_time)
+
+                if listing_info == 'no_listing':
+                    if verbose:
+                        print(f"Batch {i} - {coord_box} has no listings.")
+                    continue
+
+                viewport_url, select_listing_count, total_listing_count = listing_info
+
+                if select_listing_count != total_listing_count:
+                    big_coord_boxes.append(coord_box)
+                    continue
+
+                max_page = calculate_min_pages(select_listing_count, items_per_page=9)
+                missing = defaultdict(list)
+
+                for page in range(1, max_page):
+                    soup_boxes = crawling_redfin(headers, viewport_url, page)
+                    incomplete_idx = key_metric_extraction(soup_boxes, real_estate_info)
+
+                    if incomplete_idx:
+                        missing[f'page_{page}'].append(incomplete_idx)
+
+                    time.sleep(sleep_time)
+
+                missing_entries[coord_box].append(missing)
+
+        return real_estate_info, missing_entries, big_coord_boxes
+
+    # Initial extraction
+    initial_grid = vancouver_grid(headers, *initial_divisions)
+    real_estate_info, missing_entries, big_boxes = extract_from_boxes(
+        initial_grid, initial_batch_num, *initial_divisions
+    )
+
+    pd.DataFrame(real_estate_info).to_csv(output_paths[0], index=False)
+    if verbose:
+        print(f"Initial extraction saved to {output_paths[0]}")
+
+    # Refined extraction for boxes with incomplete listing coverage
+    if big_boxes:
+        refined_boxes = [
+            subbox
+            for big_box in big_boxes
+            for subbox in split_coordinate(
+                four_coords=1,
+                divisions_longs=refined_divisions[0],
+                divisions_lats=refined_divisions[1],
+                if_big_box=big_box,
+            )
+        ]
+
+        refined_info, refined_missing, _ = extract_from_boxes(
+            refined_boxes, refined_batch_num, *refined_divisions
+        )
+
+        pd.DataFrame(refined_info).to_csv(output_paths[1], index=False)
+        if verbose:
+            print(f"Refined extraction saved to {output_paths[1]}")
