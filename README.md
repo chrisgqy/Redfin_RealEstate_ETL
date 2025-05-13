@@ -73,3 +73,37 @@ for box in coord_boxes:
         for page in range(1, (total_count // 20) + 2):
             soup = crawling_redfin(head, url, page)
             metrics_extraction_m1(soup, real_estate_info)
+```
+
+## 📁 Project Structure
+.
+├── crawler.py               # Main script with all functions
+├── README.md                # You're reading it!
+├── requirements.txt         # Python dependencies (optional)
+
+
+## 🧰 Dependencies
+- pandas
+- numpy
+- requests
+- beautifulsoup4
+
+Install all dependencies with:
+```
+pip install -r requirements.txt
+```
+
+## ⚠️ Disclaimer
+This project is for educational and research purposes.
+Respect Redfin’s Terms of Use – excessive or automated scraping may violate their policies.
+Use responsibly.
+
+## 💬 Let’s Connect
+Love real estate + data? Let’s collaborate on real-world urban data projects!
+Feel free to open issues, suggest improvements, or fork the repo 🌟
+
+## 📌 To-Do
+- Save output as .csv or .json
+- Add retries for failed HTTP requests
+- Build a visualization dashboard (e.g., Folium or Plotly)
+- Dockerize the crawler for scalable deployment
