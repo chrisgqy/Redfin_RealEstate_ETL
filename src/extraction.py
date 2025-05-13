@@ -523,7 +523,7 @@ def run_redfin_extraction_pipeline1(
 
                 for page in range(1, max_page):
                     soup_boxes = crawling_redfin(headers, viewport_url, page)
-                    incomplete_idx = key_metric_extraction(soup_boxes, real_estate_info)
+                    incomplete_idx = metrics_extraction_m1(soup_boxes, real_estate_info)
 
                     if incomplete_idx:
                         missing[f'page_{page}'].append(incomplete_idx)
@@ -564,6 +564,100 @@ def run_redfin_extraction_pipeline1(
         pd.DataFrame(refined_info).to_csv(output_paths[1], index=False)
         if verbose:
             print(f"Refined extraction saved to {output_paths[1]}")
+
+def run_redfin_extraction_pipeline1(
+    headers,
+    initial_divisions=(6, 6),
+    initial_batch_num=5,
+    refined_divisions=(2, 2),
+    refined_batch_num=4,
+    output_paths=("../data/raw_extraction/vancouver_real_estate_m1.csv",
+                  "../data/raw_extraction/vancouver_real_estate2_m1.csv"),
+    sleep_time=1,
+    verbose=True
+):
+
+
+
+def run_redfin_extraction_pipeline2(
+    headers,
+    divisions=(15, 15),
+    batch_num=5,
+    splitted_big_box=0,
+    sleep_time=1,
+    verbose=True
+):
+    """
+    Extract real estate listing information with event data in batch mode.
+
+    Parameters:
+        headers (dict): HTTP headers for requests.
+        divisions (tuple): (longitudes, latitudes) grid size for extraction.
+        batch_num (int): Number of batches to divide coordinate boxes into.
+        splitted_big_box (list or int): Pre-defined subboxes to extract (skip grid generation if provided).
+        sleep_time (int): Time to sleep between requests.
+        verbose (bool): Whether to print progress logs.
+
+    Returns:
+        tuple:
+            - result (dict): Main property listing information
+            - result_event (dict): Event-related property data
+            - result_event_list (dict): Additional event metadata
+            - big_coord_boxes (list): Boxes with incomplete listings
+            - url_with_issue (list): URLs that failed during crawling
+    """
+
+    def extract_from_boxes(coord_boxes, batch_num, divisions_longs, divisions_lats):
+        """Inner helper to extract listing and event data from boxes in batches."""
+        big_coord_boxes = []
+        result = defaultdict(list)
+        result_event = defaultdict(list)
+        result_event_list = defaultdict(list)
+        url_with_issue = []
+
+        coord_box_batches = np.array_split(coord_boxes, batch_num)
+
+        for i, batch in enumerate(coord_box_batches):
+            for coord_box in batch:
+                listing_info = listing_count(headers, coord_box)
+                time.sleep(sleep_time)
+
+                if listing_info == 'no_listing':
+                    if verbose:
+                        print(f"Batch {i} - {coord_box} has no listings.")
+                    continue
+
+                viewport_url, select_listing_count, total_listing_count = listing_info
+
+                if select_listing_count != total_listing_count:
+                    big_coord_boxes.append(coord_box)
+                    continue
+
+                max_page = calculate_min_pages(select_listing_count, items_per_page=9)
+
+                for page in range(1, max_page):
+                    soup = crawling_redfin(headers, viewport_url, page)
+                    metrics_extraction_m1(
+                        result, 
+                        result_event, 
+                        result_event_list, 
+                        url_with_issue, 
+                        soup
+                    )
+                    time.sleep(sleep_time)
+
+        return result, result_event, result_event_list, big_coord_boxes, url_with_issue
+
+    # Coordinate generation or direct use
+    if splitted_big_box:
+        coord_boxes = splitted_big_box
+    else:
+        coord_boxes = vancouver_grid(headers, *divisions)
+
+    # Perform extraction
+    return extract_from_boxes(coord_boxes, batch_num, *divisions)
+
+
 
 ## Sample Usage
 # headers = {
