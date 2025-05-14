@@ -6,11 +6,6 @@ import seaborn as sns
 import folium
 from folium.plugins import MarkerCluster
 
-
-dimport matplotlib.pyplot as plt
-import seaborn as sns
-import matplotlib.ticker as ticker
-
 def plot_distribution(
     df,
     column,
